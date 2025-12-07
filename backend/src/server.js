@@ -18,19 +18,23 @@ const PORT = 3001;
 // 🚨 핵심 수정: Firebase Admin SDK 초기화 
 // ==========================================================
 // ⚠️ 1. 이 경로를 Firebase 서비스 계정 키 파일 경로로 변경하세요.
-const SERVICE_ACCOUNT_PATH = 'C:\Users\SeONB\Desktop\shotshot\project-shotshot\backend\shotshot-95085-firebase-adminsdk-fbsvc-e8ae24209f.json'; 
-// ⚠️ 2. 이 URL을 Firebase Realtime Database 또는 Firestore DB URL로 변경하세요.
-const DATABASE_URL = 'https://shotshot-95085.firebaseapp.com'; 
+const SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT;
+const DATABASE_URL = process.env.FIREBASE_DB_URL; 
 
-try {
-    const serviceAccount = require(SERVICE_ACCOUNT_PATH);
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: DATABASE_URL,
-    });
-    console.log('✅ Firebase Admin SDK 초기화 성공!');
-} catch (e) {
-    console.warn(`❌ Firebase Admin SDK 초기화 경고: 서비스 계정 파일 경로를 확인해주세요. (${e.message})`);
+if (SERVICE_ACCOUNT_JSON && DATABASE_URL) {
+    try {
+        // 환경 변수에서 JSON 문자열을 파싱합니다.
+        const serviceAccount = JSON.parse(SERVICE_ACCOUNT_JSON);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+            databaseURL: DATABASE_URL,
+        });
+        console.log('✅ Firebase Admin SDK 초기화 성공!');
+    } catch (e) {
+        console.warn(`❌ Firebase Admin SDK 초기화 오류: 환경 변수를 확인해주세요. (${e.message})`);
+    }
+} else {
+    console.warn('❌ Firebase 환경 변수(FIREBASE_SERVICE_ACCOUNT 또는 FIREBASE_DB_URL)가 누락되었습니다.');
 }
 
 // ==========================================================
