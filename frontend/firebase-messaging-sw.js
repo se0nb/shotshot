@@ -3,12 +3,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.6.1/firebase-messaging-compa
 
 // 🚨 FIREBASE_CONFIG를 여기에 다시 입력해야 합니다.
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY", 
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID",
+    apiKey: "AIzaSyCM2DLvehwPj8m5QEywhreHO2BEojzm7cU",
+    authDomain: "shotshot-95085.firebaseapp.com",
+    projectId: "shotshot-95085",
+    storageBucket: "shotshot-95085.firebasestorage.app",
+    messagingSenderId: "938741929966",
+    appId: "1:938741929966:web:02f75fcacb7a10db0520ff",
 };
 
 firebase.initializeApp(firebaseConfig);
