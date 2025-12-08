@@ -1,0 +1,90 @@
+------------------------------------------------------
+
+1. 의존성 및 로그 (Dependencies & Logs)
+
+------------------------------------------------------
+
+Node.js 모듈 폴더 (용량이 매우 크고, npm install로 복구 가능하므로 제외)
+
+node_modules/
+**/node_modules/
+
+npm/yarn 로그 파일
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs
+.log
+npm-debug.log.
+
+------------------------------------------------------
+
+2. 환경 변수 및 보안 키 (Security - 절대 올리면 안 됨)
+
+------------------------------------------------------
+
+환경 변수 파일
+
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+
+Firebase 서비스 계정 키 (백엔드용)
+
+⚠️ 이 파일이 GitHub에 올라가면 해킹 위험이 있습니다.
+
+serviceAccountKey.json
+backend/serviceAccountKey.json
+backend/*.json  # package.json 등을 제외하고 다른 json 키 파일도 방지 (선택 사항)
+
+단, package.json과 package-lock.json은 올라가야 하므로 예외 처리
+
+!package.json
+!package-lock.json
+!backend/package.json
+!backend/package-lock.json
+!frontend/package.json
+
+------------------------------------------------------
+
+3. 운영체제 및 IDE 설정 (System & IDE)
+
+------------------------------------------------------
+
+Mac OS
+
+.DS_Store
+
+Windows
+
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+VS Code 설정 폴더 (개인 설정이므로 제외 추천)
+
+.vscode/
+
+------------------------------------------------------
+
+4. 빌드 결과물 (Build Outputs - 필요시)
+
+------------------------------------------------------
+
+dist/
+build/
+frontend/dist/
+frontend/build/
+
+------------------------------------------------------
+
+5. Puppeteer 관련
+
+------------------------------------------------------
+
+.local-chromium
+.puppeteer
