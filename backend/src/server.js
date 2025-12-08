@@ -1,4 +1,6 @@
 import { ppomppuCrawler } from './crawlers/ppomppu.js';
+import { fmkoreaCrawler } from './crawlers/fmkorea.js';
+import { quasarzoneCrawler } from './crawlers/quasarzone.js';
 import { connectDB } from './config/db.js';
 import { Deal } from './models/Deal.js';
 import { matchAndNotify } from './services/NotificationService.js'; 
@@ -9,21 +11,18 @@ import cron from 'node-cron';
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import admin from 'firebase-admin'; // 🚨 추가: Firebase Admin SDK
+import admin from 'firebase-admin';
 
 const app = express();
 const PORT = 3001; 
 
-// ==========================================================
-// 🚨 핵심 수정: Firebase Admin SDK 초기화 
-// ==========================================================
-// ⚠️ 1. 이 경로를 Firebase 서비스 계정 키 파일 경로로 변경하세요.
+
 const SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT;
 const DATABASE_URL = process.env.FIREBASE_DB_URL; 
 
 if (SERVICE_ACCOUNT_JSON && DATABASE_URL) {
     try {
-        // 환경 변수에서 JSON 문자열을 파싱합니다.
+        // 환경 변수에서 JSON 문자열 파싱.
         const serviceAccount = JSON.parse(SERVICE_ACCOUNT_JSON);
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
@@ -37,12 +36,8 @@ if (SERVICE_ACCOUNT_JSON && DATABASE_URL) {
     console.warn('❌ Firebase 환경 변수(FIREBASE_SERVICE_ACCOUNT 또는 FIREBASE_DB_URL)가 누락되었습니다.');
 }
 
-// ==========================================================
-// DB 및 크롤링 로직 (중복 방지를 위해 생략, v5와 동일)
-// ==========================================================
 
 async function saveDeals(deals) {
-    // [saveDeals 함수 코드는 v5와 동일]
     if (deals.length === 0) {
         console.log('  └ 저장할 새로운 핫딜이 없습니다.');
         return [];
@@ -86,10 +81,9 @@ async function saveDeals(deals) {
 
 
 async function setupTestUsersAndKeywords() {
-    // [setupTestUsersAndKeywords 함수 코드는 v5와 동일]
     console.log('\n--- 테스트 사용자 및 키워드 설정 ---');
     
-    const TEST_USER_EMAIL = 'testuser@moa.com'; 
+    const TEST_USER_EMAIL = 'testuser@shotshot.com'; 
 
     const testUser = {
         email: TEST_USER_EMAIL,
@@ -106,7 +100,7 @@ async function setupTestUsersAndKeywords() {
     const userId = userDoc._id;
     console.log(`  └ 사용자 '${userDoc.email}' 준비 완료. ID: ${userId}`);
     
-    const keywords = ['나이키', '4070', '모니터'];
+    const keywords = [];
     for (const kw of keywords) {
         await Keyword.findOneAndUpdate(
             { userId: userId, keyword: kw.toLowerCase() },
@@ -119,7 +113,37 @@ async function setupTestUsersAndKeywords() {
 }
 
 // ==========================================================
-// Express 서버 설정 및 API 라우트 (v5와 동일)
+// 🚨 통합 크롤링 실행 함수
+// ==========================================================
+async function runAllCrawlers() {
+    console.log(`\n--- 통합 크롤링 시작 (${new Date().toLocaleTimeString('ko-KR')}) ---`);
+    
+    // 3개의 사이트를 동시에(병렬) 크롤링하여 속도를 높입니다.
+    // 만약 서버 사양이 낮다면 await로 순차 실행할 수도 있습니다.
+    const [ppomppuDeals, fmkoreaDeals, quasarDeals] = await Promise.all([
+        ppomppuCrawler(),
+        fmkoreaCrawler(),
+        quasarzoneCrawler()
+    ]);
+
+    // 모든 결과를 하나의 배열로 합칩니다.
+    const allDeals = [
+        ...ppomppuDeals, 
+        ...fmkoreaDeals, 
+        ...quasarDeals
+    ];
+
+    console.log(`  └ 총 수집된 데이터: ${allDeals.length}개`);
+    
+    // DB 저장 및 알림 매칭 실행
+    const insertedDeals = await saveDeals(allDeals);
+    await matchAndNotify(insertedDeals);
+    
+    console.log('--- 크롤링 종료 ---');
+}
+
+// ==========================================================
+// Express 서버 설정 및 API 라우트 
 // ==========================================================
 
 app.use(cors()); 
@@ -182,20 +206,17 @@ app.post('/api/user/fcm', async (req, res) => {
 
 async function main() {
     await connectDB();
-    const testUser = await setupTestUsersAndKeywords();
+    const testUser = await setupTestUsersAndKeywords(); 
     
-    console.log('\n🔥 핫딜-모아 백엔드 개발 시작 (5단계: FCM 알림 통합)');
+    console.log('\n 샷샷 백엔드 실행 (뽐뿌 + 펨코 + 퀘이사존)');
     
-    const initialDeals = await ppomppuCrawler();
-    const insertedDeals = await saveDeals(initialDeals);
-    await matchAndNotify(insertedDeals); 
+    // 서버 시작 시 1회 실행
+    await runAllCrawlers();
     
-    console.log('\n⏰ 크롤링 스케줄링 시작: 5분마다 뽐뿌 핫딜 확인');
+    // 5분간격 스케줄링
+    console.log('\n⏰ 크롤링 스케줄링 시작: 5분마다 3개 사이트 확인');
     cron.schedule('*/5 * * * *', async () => { 
-        console.log(`\n--- 5분 주기 크롤링 실행 (${new Date().toLocaleTimeString('ko-KR')}) ---`);
-        const newDeals = await ppomppuCrawler();
-        const insertedDeals = await saveDeals(newDeals);
-        await matchAndNotify(insertedDeals); 
+        await runAllCrawlers();
     });
 
     app.listen(PORT, () => {

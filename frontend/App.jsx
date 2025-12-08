@@ -11,54 +11,62 @@ const TEST_USER_ID = '692e612f463ac6f3e8a1ef8c';
 
 // 핫딜 목록 아이템 컴포넌트
 const DealCard = ({ deal }) => {
-    // 가격 문자열에서 숫자 부분만 분리하여 빨간색으로 강조
+    // 가격 파싱 로직
     const priceMatch = deal.price.match(/[\d,]+/);
     const displayedPrice = priceMatch ? priceMatch[0] : deal.price;
     
-    // 사이트별 색상 정의 (향후 DB에서 관리 필요)
+    // 🚨 사이트별 뱃지 색상 설정 추가
     let siteColor = 'bg-gray-500';
+    let siteName = deal.site;
+
     if (deal.site === 'ppomppu') {
-        siteColor = 'bg-blue-600';
+        siteColor = 'bg-purple-600'; // 뽐뿌: 보라색 계열 (또는 파랑)
+        siteName = '뽐뿌';
+    } else if (deal.site === 'fmkorea') {
+        siteColor = 'bg-blue-500';   // 펨코: 파란색
+        siteName = '펨코';
     } else if (deal.site === 'quasarzone') {
-        siteColor = 'bg-green-600';
+        siteColor = 'bg-orange-500'; // 퀘이사존: 주황색
+        siteName = '퀘이사존';
     }
 
     const formatTime = (isoString) => {
-        const date = new Date(isoString);
-        return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+        try {
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+        } catch (e) {
+            return '-';
+        }
     };
 
     return (
         <a href={deal.url} target="_blank" rel="noopener noreferrer" 
            className="block bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100 group cursor-pointer">
             <div className="h-40 bg-gray-50 relative overflow-hidden flex items-center justify-center p-4">
-                {/* 커뮤니티 뱃지 */}
                 <div className="absolute top-3 left-3">
+                    {/* 뱃지 색상 적용 */}
                     <span className={`${siteColor} text-white text-xs font-bold px-2 py-1 rounded shadow-sm capitalize`}>
-                        {deal.site}
+                        {siteName}
                     </span>
                 </div>
-                {/* 이미지 Placeholder */}
+                {/* 이미지 대신 사이트별 아이콘/로고 개념 적용 가능 */}
                 <i className="fas fa-box text-5xl text-gray-300"></i>
             </div>
             
             <div className="p-4">
                 <div className="text-xs text-gray-500 mb-1 flex justify-between items-center">
-                    <span>{deal.category}</span>
+                    <span className="truncate max-w-[60%]">{deal.category}</span>
                     <span>{formatTime(deal.postedAt)}</span>
                 </div>
-                {/* 제목 */}
                 <h3 className="font-bold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-red-500 transition-colors">
                     {deal.title}
                 </h3>
                 
                 <div className="flex items-end justify-between mt-3">
-                    {/* 가격 강조 */}
                     <div className="text-lg font-extrabold text-red-600">
                         {displayedPrice}원
                     </div>
                     
-                    {/* 댓글 수 */}
                     <div className="flex items-center space-x-3 text-sm text-gray-500">
                         <span><i className="far fa-comment"></i> {deal.commentCount}</span>
                     </div>
