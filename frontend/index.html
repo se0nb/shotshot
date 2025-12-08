@@ -33,10 +33,9 @@
         const firebaseConfig = {apiKey: "AIzaSyCM2DLvehwPj8m5QEywhreHO2BEojzm7cU", authDomain: "shotshot-95085.firebaseapp.com", databaseURL: "https://shotshot-95085-default-rtdb.firebaseio.com", projectId: "shotshot-95085", storageBucket: "shotshot-95085.firebasestorage.app", messagingSenderId: "938741929966", appId: "1:938741929966:web:02f75fcacb7a10db0520ff" };
         const VAPID_KEY = 'BOfmI4ePJPcDx7MMZjAchBxq3rg5qfc3ed2DTEidAVRFW-sJU3JCOkPd6tOaAVTQNqZiMYGrPGo7qh2FjDRoBzs';
 
-        const Modal=({isOpen,onClose,title,children})=>(!isOpen?null:<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"><div className="flex justify-between items-center p-4 border-b"><h3 className="text-lg font-bold">{title}</h3><button onClick={onClose}><i className="fas fa-times"></i></button></div><div className="p-4">{children}</div></div></div>);
-        const KeywordRegister=({userId,onUrlChange})=>{const [k,setK]=useState('');const [m,setM]=useState(null);const h=async(e)=>{e.preventDefault();if(!k.trim())return;try{const r=await fetch(`${API_BASE_URL}/api/keywords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,keyword:k})});const d=await r.json();setM({t:d.success?'success':'error',m:d.message});if(d.success){setK('');if(onUrlChange)onUrlChange();}}catch(e){setM({t:'error',m:'Error'})}};return(<div><form onSubmit={h} className="flex gap-2 mb-2"><input value={k} onChange={e=>setK(e.target.value)} className="flex-1 border p-2 rounded" placeholder="키워드 입력" /><button className="bg-red-500 text-white px-4 rounded font-bold">등록</button></form>{m&&<p className={`text-sm ${m.t==='success'?'text-green-600':'text-red-500'}`}>{m.m}</p>}</div>)};
-        const KeywordList=()=>(<div className="text-center py-8 text-gray-500">목록 기능 구현 필요</div>);
         const requestFCM=async(u)=>{try{const a=!firebase.apps.length?firebase.initializeApp(FIREBASE_CONFIG):firebase.app();const m=firebase.messaging(a);if((await Notification.requestPermission())==='granted'){const t=await m.getToken({vapidKey:VAPID_KEY});if(t){await fetch(`${API_BASE_URL}/api/user/fcm`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId:u,fcmToken:t})});return true;}}}catch(e){}return false;};
+        const Modal=({isOpen,onClose,title,children})=>(!isOpen?null:<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"><div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"><div className="flex justify-between items-center p-4 border-b"><h3 className="text-lg font-bold">{title}</h3><button onClick={onClose}><i className="fas fa-times"></i></button></div><div className="p-4">{children}</div></div></div>);
+        const KeywordRegister=({userId})=>{const [k,setK]=useState('');const h=async(e)=>{e.preventDefault();if(!k.trim())return;await fetch(`${API_BASE_URL}/api/keywords`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId,keyword:k})});setK('');alert('등록됨')};return(<form onSubmit={h} className="flex gap-2"><input value={k} onChange={e=>setK(e.target.value)} className="flex-1 border p-2 rounded" placeholder="키워드 입력" /><button className="bg-red-500 text-white px-4 rounded">등록</button></form>)};
         const Sidebar=({isOpen,onClose,selected,onSelect})=>{if(!isOpen)return null;const s=[{id:'ppomppu',n:'뽐뿌',c:'text-purple-600',i:'fas fa-gift'},{id:'fmkorea',n:'펨코',c:'text-blue-600',i:'fas fa-comment-dollar'},{id:'quasarzone',n:'퀘존',c:'text-orange-500',i:'fas fa-microchip'}];return(<div className="fixed inset-0 z-50 flex"><div className="fixed inset-0 bg-black/50" onClick={onClose}></div><div className="relative w-64 bg-white shadow-xl flex flex-col"><div className="p-5 border-b flex justify-between items-center"><h2 className="font-bold">사이트 선택</h2><button onClick={onClose}><i className="fas fa-times"></i></button></div><div className="p-2 space-y-1">{s.map(i=>(<button key={i.id} onClick={()=>{onSelect(i.id);onClose()}} className={`w-full flex items-center gap-3 p-3 rounded-xl transition ${selected===i.id?'bg-red-50 border border-red-100':'hover:bg-gray-50'}`}><i className={`${i.i} ${selected===i.id?'text-red-500':'text-gray-400'} w-6`}></i><span className={`font-medium ${selected===i.id?'text-gray-900':'text-gray-500'}`}>{i.n}</span>{selected===i.id&&<i className="fas fa-check text-red-500 ml-auto"></i>}</button>))}</div></div></div>);};
 
         const DealCard = ({ deal }) => {
@@ -53,40 +52,17 @@
 
             return (
                 <a href={deal.url} target="_blank" className="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col h-full">
-                    {/* 이미지 영역 (높이 고정) */}
-                    <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
+                    <div className="relative w-full h-40 bg-gray-100 overflow-hidden">
                         {deal.imageUrl ? (
-                            <img src={deal.imageUrl} alt={deal.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                                onError={(e) => {e.target.onerror=null; e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} />
+                            <img src={deal.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform" onError={(e)=>{e.target.style.display='none';}}/>
                         ) : null}
-                        {/* 이미지 로드 실패 시 또는 없을 때 대체 아이콘 */}
-                        <div className={`absolute inset-0 flex items-center justify-center bg-gray-50 ${deal.imageUrl ? 'hidden' : 'flex'}`}>
-                            <i className="fas fa-box-open text-4xl text-gray-300"></i>
-                        </div>
-                        
-                        {/* 사이트 뱃지 */}
-                        <span className={`absolute top-3 left-3 text-[10px] font-bold text-white px-2 py-1 rounded shadow-md ${siteBadge.color}`}>
-                            {siteBadge.name}
-                        </span>
+                        <div className={`absolute inset-0 flex items-center justify-center bg-gray-50 ${deal.imageUrl ? 'hidden' : 'flex'}`}><i className="fas fa-box-open text-4xl text-gray-300"></i></div>
+                        <span className={`absolute top-3 left-3 text-[10px] font-bold text-white px-2 py-1 rounded shadow-md ${siteBadge.color}`}>{siteBadge.name}</span>
                     </div>
-
-                    {/* 텍스트 영역 */}
                     <div className="p-4 flex flex-col flex-1">
-                        <div className="flex justify-between items-start mb-2">
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{deal.category}</span>
-                            <span className="text-xs text-gray-400">{timeAgo(deal.postedAt)}</span>
-                        </div>
-                        
-                        <h3 className="font-bold text-gray-800 text-base leading-snug line-clamp-2 mb-3 group-hover:text-red-600 transition-colors">
-                            {deal.title}
-                        </h3>
-                        
-                        <div className="mt-auto flex justify-between items-end border-t pt-3 border-gray-50">
-                            <span className="font-extrabold text-red-600 text-lg">{price}<span className="text-xs font-normal text-gray-500 ml-1">원</span></span>
-                            <div className="text-xs text-gray-400 flex items-center gap-1">
-                                <i className="far fa-comment-dots"></i> {deal.commentCount}
-                            </div>
-                        </div>
+                        <div className="flex justify-between items-start mb-2"><span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{deal.category}</span><span className="text-xs text-gray-400">{timeAgo(deal.postedAt)}</span></div>
+                        <h3 className="font-bold text-gray-800 text-sm leading-snug line-clamp-2 mb-3 group-hover:text-red-600 transition-colors">{deal.title}</h3>
+                        <div className="mt-auto flex justify-between items-end border-t pt-3 border-gray-50"><span className="font-extrabold text-red-600 text-lg">{price}<span className="text-xs font-normal text-gray-500 ml-1">원</span></span><div className="text-xs text-gray-400 flex items-center gap-1"><i className="far fa-comment-dots"></i> {deal.commentCount}</div></div>
                     </div>
                 </a>
             );
@@ -99,6 +75,11 @@
             const [sidebarOpen, setSidebarOpen] = useState(false);
             const [keywordOpen, setKeywordOpen] = useState(false);
             
+            // 🚨 검색 관련 상태 추가
+            const [isSearchMode, setIsSearchMode] = useState(false);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [searchResults, setSearchResults] = useState([]);
+
             const loadDeals = useCallback(async () => {
                 try {
                     const res = await fetch(`${API_BASE_URL}/api/deals`);
@@ -116,29 +97,92 @@
 
             const toggleNoti = async () => { if (await requestFCM(TEST_USER_ID)) alert('알림 ON'); else alert('권한 필요'); };
 
-            // 🚨 화면 폭을 max-w-7xl로 넓힘
+            // 🚨 검색 핸들러
+            const handleSearch = async (e) => {
+                e.preventDefault();
+                if(!searchQuery.trim()) return;
+                setLoading(true);
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/search?q=${encodeURIComponent(searchQuery)}`);
+                    const json = await res.json();
+                    if(json.success) {
+                        setSearchResults(json.deals);
+                        setIsSearchMode(true);
+                    }
+                } catch(e) { alert('검색 실패'); }
+                setLoading(false);
+            };
+
+            const closeSearch = () => {
+                setIsSearchMode(false);
+                setSearchQuery('');
+                setSearchResults([]);
+                loadDeals(); // 원래 목록 새로고침
+            };
+
             return (
                 <div className="max-w-7xl mx-auto min-h-screen bg-gray-50 pb-20 shadow-xl">
                     <header className="sticky top-0 bg-white/90 backdrop-blur border-b h-16 flex items-center justify-between px-4 z-20">
-                        <button onClick={()=>setSidebarOpen(true)} className="text-gray-600 p-2 hover:bg-gray-100 rounded-full transition"><i className="fas fa-bars text-xl"></i></button>
-                        <h1 className="font-black text-red-600 text-2xl tracking-tight flex items-center gap-2 cursor-pointer" onClick={loadDeals}>
-                            <i className="fas fa-bolt"></i>샷샷 <span className="text-gray-400 font-normal text-sm pt-1">| {siteName}</span>
-                        </h1>
+                        <div className="flex items-center gap-2">
+                            <button onClick={()=>setSidebarOpen(true)} className="text-gray-600 p-2 hover:bg-gray-100 rounded-full"><i className="fas fa-bars text-xl"></i></button>
+                            {!isSearchMode && (
+                                <h1 className="font-black text-red-600 text-2xl tracking-tight flex items-center gap-2 cursor-pointer" onClick={loadDeals}>
+                                    <i className="fas fa-bolt"></i>샷샷 <span className="text-gray-400 font-normal text-sm pt-1 hidden sm:inline">| {siteName}</span>
+                                </h1>
+                            )}
+                        </div>
+
+                        {/* 검색바 영역 */}
+                        <div className={`flex-1 mx-4 max-w-md transition-all duration-300 ${isSearchMode ? 'block' : 'hidden md:block'}`}>
+                            <form onSubmit={handleSearch} className="relative">
+                                <input 
+                                    type="text" 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="지난 핫딜 검색..." 
+                                    className="w-full bg-gray-100 border-none rounded-full py-2 pl-4 pr-10 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                                />
+                                {isSearchMode ? (
+                                    <button type="button" onClick={closeSearch} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-500">
+                                        <i className="fas fa-times"></i>
+                                    </button>
+                                ) : (
+                                    <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500">
+                                        <i className="fas fa-search"></i>
+                                    </button>
+                                )}
+                            </form>
+                        </div>
+
                         <div className="flex gap-1">
-                            <button onClick={()=>setKeywordOpen(true)} className="text-gray-600 p-2 hover:text-red-500 hover:bg-gray-100 rounded-full transition"><i className="fas fa-plus-circle text-xl"></i></button>
-                            <button onClick={toggleNoti} className="text-gray-600 p-2 hover:text-blue-500 hover:bg-gray-100 rounded-full transition"><i className="far fa-bell text-xl"></i></button>
+                            {/* 모바일용 검색 버튼 토글 (화면 작을때만 보임) */}
+                            <button onClick={()=>setIsSearchMode(true)} className={`md:hidden text-gray-600 p-2 hover:bg-gray-100 rounded-full ${isSearchMode ? 'hidden' : 'block'}`}>
+                                <i className="fas fa-search text-xl"></i>
+                            </button>
+
+                            <button onClick={()=>setKeywordOpen(true)} className="text-gray-600 p-2 hover:text-red-500 hover:bg-gray-100 rounded-full"><i className="fas fa-plus-circle text-xl"></i></button>
+                            <button onClick={toggleNoti} className="text-gray-600 p-2 hover:text-blue-500 hover:bg-gray-100 rounded-full"><i className="far fa-bell text-xl"></i></button>
                         </div>
                     </header>
 
                     <main className="p-4 md:p-6 lg:p-8">
+                        {isSearchMode && (
+                            <div className="mb-4 flex items-center justify-between">
+                                <h2 className="font-bold text-xl text-gray-800">🔍 '{searchQuery}' 검색 결과</h2>
+                                <button onClick={closeSearch} className="text-sm text-red-500 font-bold hover:underline">닫기</button>
+                            </div>
+                        )}
+
                         {loading ? (
-                            <div className="text-center py-20 text-gray-400"><i className="fas fa-circle-notch fa-spin text-3xl mb-4"></i><p>핫딜 로딩 중...</p></div>
-                        ) : filtered.length === 0 ? (
-                            <div className="text-center py-20 text-gray-400"><i className="far fa-folder-open text-4xl mb-2"></i><p>{siteName} 핫딜이 없습니다.</p></div>
+                            <div className="text-center py-20 text-gray-400"><i className="fas fa-circle-notch fa-spin text-3xl mb-4"></i><p>로딩 중...</p></div>
+                        ) : (isSearchMode ? searchResults : filtered).length === 0 ? (
+                            <div className="text-center py-20 text-gray-400">
+                                <i className="far fa-folder-open text-4xl mb-2"></i>
+                                <p>{isSearchMode ? "검색 결과가 없습니다." : `${siteName} 핫딜이 없습니다.`}</p>
+                            </div>
                         ) : (
-                            // 🚨 그리드 레이아웃 적용: 모바일 1열, 태블릿 2열, PC 3열
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filtered.map(d => <DealCard key={d._id} deal={d} />)}
+                                {(isSearchMode ? searchResults : filtered).map(d => <DealCard key={d._id} deal={d} />)}
                             </div>
                         )}
                     </main>
