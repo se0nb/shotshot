@@ -5,7 +5,7 @@ const QUASAR_URL = 'https://quasarzone.com/bbs/qb_saleinfo';
 const BASE_DOMAIN = 'https://quasarzone.com';
 
 export async function quasarzoneCrawler() {
-    console.log('--- 퀘이사존(Quasarzone) 크롤링 시작 ---');
+    console.log('--- 퀘이사존(Quasarzone) 크롤링 시작 (선택자 수정) ---');
 
     try {
         const response = await axios.get(QUASAR_URL, {
@@ -17,40 +17,41 @@ export async function quasarzoneCrawler() {
         const $ = cheerio.load(response.data);
         const dealList = [];
 
-        // 퀘이사존 리스트 항목 선택자
-        const rows = $('.market-info-list-cont .market-info-list');
+        // 🚨 선택자 수정: 일반적인 게시판 목록 행(.list-row)을 찾도록 변경합니다.
+        const rows = $('.list-row'); 
+
+        if (rows.length === 0) {
+            console.warn('퀘이사존 경고: 목록 요소를 찾지 못했습니다. 선택자(.list-row)를 확인하세요.');
+        }
+
 
         rows.each((index, element) => {
             try {
-                // 1. 종료 여부 확인 (label.done 이 있으면 종료된 딜)
+                // 1. 종료 여부 확인 (.label.done)
                 const isEnded = $(element).find('.label.done').length > 0;
-                if (isEnded) return; // 종료된 딜은 수집 제외
+                if (isEnded) return;
 
                 // 2. 제목 및 링크
-                const titleAnchor = $(element).find('.tit > a.subject-link');
+                const titleAnchor = $(element).find('.subject a.subject-link');
                 let title = titleAnchor.text().trim();
                 const link = titleAnchor.attr('href');
 
-                // 제목 내 불필요한 태그 텍스트 제거 (블라인드 처리된 글 등)
-                if (title.includes('블라인드 처리')) return;
+                if (!link || title.includes('블라인드 처리')) return;
 
-                // 3. 가격 (text-orange 클래스)
+                // 3. 가격 (.text-orange 클래스를 가진 요소)
                 const priceText = $(element).find('.market-info-sub .price .text-orange').text().trim() || '가격 정보 없음';
                 
-                // 4. 카테고리 (category 클래스)
+                // 4. 카테고리
                 const category = $(element).find('.category').text().trim();
 
                 // 5. 댓글 수
-                const commentCountText = $(element).find('.count').text().trim();
+                const commentCountText = $(element).find('.subject-link .count').text().trim();
                 const commentCount = parseInt(commentCountText) || 0;
 
-                // 6. 작성 시간
-                const timeText = $(element).find('.date').text().trim();
-                // 퀘이사존 시간 포맷 처리 (필요시)
+                // 6. 작성 시간은 HTML 구조상 복잡하여 임시로 수집 시간 사용
 
                 const fullUrl = link.startsWith('http') ? link : BASE_DOMAIN + link;
                 
-                // 7. 원본 ID 추출 (URL의 마지막 숫자 세그먼트)
                 const urlParts = fullUrl.split('/');
                 const originId = urlParts[urlParts.length - 1];
 
@@ -77,7 +78,7 @@ export async function quasarzoneCrawler() {
         return dealList;
 
     } catch (error) {
-        console.error('퀘이사존 크롤링 에러:', error.message);
+        console.error('❌ 퀘이사존 크롤링 에러:', error.message);
         return [];
     }
 }
