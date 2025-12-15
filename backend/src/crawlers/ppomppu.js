@@ -1,138 +1,147 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import iconv from 'iconv-lite';
+import puppeteer from 'puppeteer';
+import UserAgent from 'user-agents';
 
 const PPOMPPU_URL = 'https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu';
 
 export async function ppomppuCrawler() {
-    console.log('--- 뽐뿌게시판(id=ppomppu) 크롤링 시작 (클래스 기반 정밀 탐색) ---');
+    console.log('--- 뽐뿌게시판(id=ppomppu) 크롤링 시작 (Puppeteer 방식) ---');
+    
+    const browser = await puppeteer.launch({ 
+        headless: "new", 
+        args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    });
+
     try {
-        const response = await axios.get(PPOMPPU_URL, {
-            responseType: 'arraybuffer',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                // 뽐뿌는 쿠키가 없으면 종종 봇으로 간주하고 차단하거나 다른 페이지를 보여줍니다.
-                'Cookie': 'PHPSESSID=access; visit_time=' + Date.now() 
-            }
-        });
+        const page = await browser.newPage();
         
-        // EUC-KR 디코딩 (뽐뿌는 구형 인코딩 사용)
-        const html = iconv.decode(response.data, 'EUC-KR').toString();
-        const $ = cheerio.load(html);
-        const dealList = [];
+        // 봇 탐지 우회: 랜덤 User-Agent 설정
+        const userAgent = new UserAgent({ deviceCategory: 'desktop' });
+        await page.setUserAgent(userAgent.toString());
+        
+        // 뷰포트 설정 (일반 모니터 해상도)
+        await page.setViewport({ width: 1920, height: 1080 });
 
-        // [핵심 변경 사항]
-        // 1. 전체 링크를 긁지 않고, 실제 게시글 목록인 tr.list0, tr.list1 만 타겟팅합니다.
-        // 이렇게 하면 공지사항, 광고, 사이드바 인기글 등을 자동으로 제외할 수 있습니다.
-        const listRows = $('.list0, .list1');
+        // 페이지 이동 (네트워크 유휴 상태까지 대기)
+        await page.goto(PPOMPPU_URL, { waitUntil: 'networkidle2', timeout: 60000 });
 
-        listRows.each((index, element) => {
-            try {
-                const row = $(element);
-                
-                // 광고나 공지사항(필드 구조가 다름) 제외를 위한 방어 코드
-                // 뽐뿌 게시글 행은 보통 td가 4~5개 이상입니다.
-                if (row.find('td').length < 4) return;
+        // 게시글 목록(.list0, .list1)이 로드될 때까지 대기
+        try {
+            await page.waitForSelector('.list1', { timeout: 10000 });
+        } catch (e) {
+            console.warn('뽐뿌 리스트 요소를 찾는 데 시간이 걸리거나 실패했습니다.');
+        }
 
-                // --- 1. 링크 및 ID 추출 ---
-                // 보통 3번째 td 안에 제목 링크가 있습니다.
-                const titleAnchor = row.find('td:nth-child(3) a[href*="view.php"]');
-                if (!titleAnchor.length) return;
+        const deals = await page.evaluate(() => {
+            const list = [];
+            // 뽐뿌 게시판은 tr 태그에 class="list0" 또는 "list1"을 번갈아 사용합니다.
+            const rows = document.querySelectorAll('tr.list0, tr.list1');
 
-                const link = titleAnchor.attr('href');
-                if (!link) return;
+            rows.forEach(row => {
+                try {
+                    // 1. 유효한 게시글 행인지 확인 (td 개수가 적으면 광고/공지일 확률 높음)
+                    const tds = row.querySelectorAll('td');
+                    if (tds.length < 4) return;
 
-                // URL에서 게시글 번호(no) 추출
-                const noMatch = link.match(/no=(\d+)/);
-                const originId = noMatch ? noMatch[1] : null;
-                if (!originId) return;
+                    // 2. 제목 및 링크 추출
+                    // 제목 셀은 보통 3번째(인덱스 2) 또는 4번째에 위치하나 가변적일 수 있음.
+                    // 확실한 방법은 'view.php' 링크를 가진 a 태그를 찾는 것.
+                    const titleAnchor = row.querySelector('a[href*="view.php"]');
+                    if (!titleAnchor) return;
 
-                // --- 2. 썸네일 추출 ---
-                // 3번째 td 안의 img 태그
-                let imageUrl = row.find('td:nth-child(3) img').attr('src');
-                if (imageUrl) {
-                    if (imageUrl.includes('noimage')) {
-                        imageUrl = null;
-                    } else if (imageUrl.startsWith('//')) {
-                        imageUrl = 'https:' + imageUrl;
-                    } else if (!imageUrl.startsWith('http')) {
-                        imageUrl = 'https://www.ppomppu.co.kr' + imageUrl;
+                    let link = titleAnchor.getAttribute('href');
+                    const noMatch = link.match(/no=(\d+)/);
+                    if (!noMatch) return; // 게시글 번호 없으면 스킵
+                    const originId = noMatch[1];
+
+                    // 링크 정규화
+                    if (!link.startsWith('http')) {
+                        link = `https://www.ppomppu.co.kr/zboard/${link}`;
                     }
+
+                    // 제목 텍스트 추출 (폰트 태그 제거 등 정리)
+                    let title = titleAnchor.textContent.trim();
+                    // 만약 .list_title 클래스가 있다면 그 안의 텍스트가 더 정확함
+                    const listTitleEl = row.querySelector('.list_title');
+                    if (listTitleEl) {
+                        title = listTitleEl.textContent.trim();
+                    }
+
+                    // 3. 이미지 추출 (썸네일)
+                    let imageUrl = null;
+                    const imgEl = row.querySelector('img');
+                    if (imgEl) {
+                        const src = imgEl.getAttribute('src');
+                        if (src && !src.includes('noimage')) {
+                            if (src.startsWith('//')) imageUrl = 'https:' + src;
+                            else if (src.startsWith('http')) imageUrl = src;
+                            else imageUrl = 'https://www.ppomppu.co.kr' + src;
+                        }
+                    }
+
+                    // 4. 댓글 수 추출
+                    let commentCount = 0;
+                    const commentEl = row.querySelector('.list_comment2');
+                    if (commentEl) {
+                        commentCount = parseInt(commentEl.textContent.trim()) || 0;
+                    }
+
+                    // 5. 카테고리 추출
+                    let category = '기타';
+                    // 제목 앞의 [분류] 패턴 확인
+                    const catMatch = title.match(/^\[([^\]]+)\]/);
+                    if (catMatch) {
+                        category = catMatch[1];
+                        title = title.replace(/^\[[^\]]+\]/, '').trim(); // 제목에서 카테고리 제거
+                    }
+
+                    // 6. 가격 추출 (제목 내 괄호 패턴)
+                    let price = '미확인';
+                    // 예: "상품명 (10,000원/무료)" -> 괄호 안의 내용 추출
+                    // 댓글 수([30])와 혼동 방지를 위해 소괄호() 사용 패턴 우선
+                    const priceMatch = title.match(/\(([^)]+)\)$/);
+                    if (priceMatch) {
+                        price =QXMatch[1];
+                    }
+
+                    // 7. 작성 시간 추출
+                    // 뽐뿌는 td의 title 속성에 전체 날짜(YYYY-MM-DD HH:MM:SS)를 넣어두는 경우가 많음
+                    let postedAt = new Date().toISOString();
+                    // 보통 뒤에서 두번째나 세번째 td에 날짜가 있음
+                    for (const td of tds) {
+                        const titleAttr = td.getAttribute('title');
+                        // 날짜 형식(YY.MM.DD 또는 YYYY-MM-DD)이 포함되어 있는지 간단 체크
+                        if (titleAttr && (titleAttr.includes('.') || titleAttr.includes('-')) && titleAttr.includes(':')) {
+                            postedAt = titleAttr;
+                            break;
+                        }
+                    }
+
+                    list.push({
+                        site: 'ppomppu',
+                        originId,
+                        title,
+                        price,
+                        url: link,
+                        imageUrl,
+                        category,
+                        commentCount,
+                        postedAt
+                    });
+                } catch (e) {
+                    // 개별 행 파싱 실패 시 무시
                 }
+            });
 
-                // --- 3. 제목 및 댓글 수 추출 ---
-                // 뽐뿌는 <font class="list_title">제목</font> 구조를 사용하거나 a 태그 안에 텍스트가 있습니다.
-                let fullTitle = row.find('.list_title').text().trim();
-                if (!fullTitle) fullTitle = titleAnchor.text().trim();
-
-                // 댓글 수: 제목 뒤에 [숫자] 형태로 붙거나, 별도의 span/class로 존재할 수 있음
-                // 뽐뿌는 보통 .list_comment2 클래스에 댓글 수가 있습니다.
-                const commentCountText = row.find('.list_comment2').text().trim();
-                const commentCount = parseInt(commentCountText) || 0;
-
-                // --- 4. 카테고리 추출 ---
-                // 보통 제목 앞의 [카테고리] 텍스트 또는 td 내의 small 태그
-                let category = '기타';
-                const smallTag = row.find('td:nth-child(3) small'); // 분류가 small 태그인 경우
-                if (smallTag.length) {
-                    category = smallTag.text().trim();
-                } else {
-                    // 제목 앞의 [분류] 추출 시도
-                    const catMatch = fullTitle.match(/^\[([^\]]+)\]/);
-                    if (catMatch) category = catMatch[1];
-                }
-                
-                // --- 5. 가격 추출 ---
-                // 뽐뿌 게시판은 제목 끝에 괄호로 가격을 적는 규칙이 있습니다. 예: "상품명 (10,000원/무료)"
-                let price = '미확인';
-                // 괄호 안의 내용을 찾되, 댓글 수([30])와 혼동하지 않도록 괄호()를 타겟팅
-                const priceMatch = fullTitle.match(/\(([^)]+)\)$/); 
-                if (priceMatch) {
-                    price =QXMatch[1].trim();
-                } else {
-                    // 제목 중간에 있는 경우도 대비
-                    const strictPriceMatch = fullTitle.match(/\(([\d,]+(원|달러|KRW|USD).*?)\)/);
-                    if (strictPriceMatch) price = strictPriceMatch[1];
-                }
-
-                // --- 6. 제목 정제 ---
-                // 카테고리([..])와 댓글수, 가격 등을 제목에서 제거하여 깔끔하게 만듦 (선택사항)
-                let cleanTitle = fullTitle
-                    .replace(/^\[[^\]]+\]/, '') // 앞쪽 카테고리 제거
-                    .replace(/\s+/g, ' ')       // 공백 정리
-                    .trim();
-
-                // URL 정규화
-                let fullUrl = link.trim();
-                if (!fullUrl.startsWith('http')) {
-                    fullUrl = 'https://www.ppomppu.co.kr/zboard/' + fullUrl;
-                }
-
-                dealList.push({
-                    site: 'ppomppu',
-                    originId,
-                    title: cleanTitle,
-                    price,
-                    url: fullUrl,
-                    imageUrl,
-                    // 4번째 td가 글쓴이, 5번째 td가 날짜인 경우가 많음 (title 속성에 전체 날짜가 있음)
-                    postedAt: row.find('td:nth-child(5)').attr('title') || new Date().toISOString(),
-                    commentCount,
-                    category
-                });
-
-            } catch (err) {
-                console.warn('Parsing Error in row:', err.message);
-            }
+            return list;
         });
-        
-        console.log(`✅ 뽐뿌 수집 성공: ${dealList.length}개`);
-        returnQlList;
+
+        console.log(`✅ 뽐뿌 수집 성공: ${deals.length}개`);
+        return deals;
 
     } catch (error) {
         console.error('❌ 뽐뿌 크롤링 실패:', error.message);
-        // axios는 봇 차단 시 403, 406 에러 등을 뱉을 수 있음
         return [];
+    } finally {
+        await browser.close();
     }
 }
