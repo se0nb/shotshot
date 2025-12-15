@@ -71,6 +71,9 @@ export async function ppomppuCrawler() {
             }
             if (!title) return; // 제목 없으면 스킵
 
+            // 제목 정제 (탭, 연속된 공백 제거)
+            title = title.replace(/\s+/g, ' ').trim();
+
             // 썸네일 추출
             let imageUrl = row.find('img').attr('src');
             if (imageUrl) {
@@ -101,7 +104,8 @@ export async function ppomppuCrawler() {
                 // 못 찾았으면 텍스트로 시도 (XX:XX or XX/XX)
                 const dateRegex = /\d{2}[:\/]\d{2}/;
                 row.find('td').each((i, td) => {
-                    if (dateRegex.test($(td).text())) timeText = $(td).text().trim();
+                    const txt = $(td).text().trim();
+                    if (dateRegex.test(txt)) timeText = txt;
                 });
             }
 
@@ -116,12 +120,15 @@ export async function ppomppuCrawler() {
             // 카테고리 추출
             let category = '기타';
             const catSmall = row.find('small.baseList-small'); // 신버전 스킨
-            if (catSmall.length) category = catSmall.text().trim();
-            else {
+            if (catSmall.length) {
+                category = catSmall.text().trim();
+            } else {
                 // 구버전 스킨: [분류] 텍스트가 제목 앞에 있거나 td 안에 있음
                 const catMatch = row.text().match(/\[([^\]]+)\]/);
                 if (catMatch) category = catMatch[1];
             }
+            // 카테고리 대괄호 제거
+            category = category.replace(/[\[\]]/g, '').trim();
 
             // URL 정규화
             let fullUrl = link.trim();
@@ -144,9 +151,12 @@ export async function ppomppuCrawler() {
         
         console.log(`✅ 뽐뿌 수집 성공: ${dealList.length}개`);
         
-        // 디버깅: 만약 0개라면 HTML 구조가 완전히 바뀐 것일 수 있음
-        if (dealList.length === 0) {
-            console.log('⚠️ 수집된 데이터가 0개입니다. 응답 HTML 일부:', $.html().substring(0, 500));
+        // [디버깅] 실제 수집된 데이터 샘플을 출력하여 확인
+        if (dealList.length > 0) {
+            console.log('🔎 수집된 데이터 샘플 (첫 번째 항목):');
+            console.log(JSON.stringify(dealList[0], null, 2));
+        } else {
+            console.log('⚠️ 수집된 데이터가 0개입니다. HTML 구조 확인 필요:', $.html().substring(0, 500));
         }
 
         return dealList;
