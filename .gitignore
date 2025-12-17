@@ -32,6 +32,7 @@ npm-debug.log.
 .env.test.local
 .env.production.local
 backend/.env
+backend/src/config/db.js
 
 Firebase 서비스 계정 키 (백엔드용)
 
